@@ -1,0 +1,130 @@
+//=============================================================
+// CardInfo
+// Vérifie la présence d'une carte SD dans le lecteur, son formatage
+// affiche la liste des répertoires et fichiers présents
+// tiptopboards.com
+// Traduit de Arduino.cc Limor Fried, Tom Igoe  // 03 12 2013
+//=============================================================
+#include <SD.h>    //Utiliser la librairie SD
+
+
+Sd2Card card;     //Variables utilisées par le programme
+SdVolume volume;
+SdFile root;
+File myFile;    //Fichier à créer et effacer
+
+
+// Modifier ceci selon le module utilisé, pour le shield Ethernet utilsier pin 4
+// Pour les shields et modules Adafruit : pin 10; Sparkfun SD shield: pin 8
+const int chipSelect = 8;      //Configuré en sortie
+
+void setup()
+{
+  Serial.begin(9600);   //Affichage série
+  Serial.print("\nInitialisation SD ...");
+  //Laisser en sortie pin 10 sinon SD ne fonctionnera pas
+  pinMode(10, OUTPUT);     // pin 53 si carte Mega
+
+  //Tster si la carte fonctionne
+  if (!card.init(SPI_HALF_SPEED, chipSelect)) {
+    Serial.println("Echec de l initialisation. Choses a verifier :");
+    Serial.println("* la carte est elle inseree ?");
+    Serial.println("* le cablage est il correct ?");
+    Serial.println("* avez vous reglé le chipSelect pin selon votre shield ou module ?");
+    return;
+  } else {
+    Serial.println("Montage correct et carte presente");
+  }
+
+  // Afficher le type de carte
+  Serial.print("\nType de carte : ");
+  switch(card.type()) {
+  case SD_CARD_TYPE_SD1:
+    Serial.println("SD1");
+    break;
+  case SD_CARD_TYPE_SD2:
+    Serial.println("SD2");
+    break;
+  case SD_CARD_TYPE_SDHC:
+    Serial.println("SDHC");
+    break;
+  default:
+    Serial.println("Inconnu");
+  }
+
+  // Maintenant on va essayer d'ouvrir le 'volume'/'partition' -  FAT16 ou FAT32
+  if (!volume.init(card)) {
+    Serial.println("Ne trouve pas de partition FAT16 / FAT32 .\nAssurez vous d avoir formate la carte");
+    return;
+  }
+
+
+  // Affiche le type le la taille de la première FAT-type volume
+  uint32_t volumesize;
+  Serial.print("\nVolume type FAT");
+  Serial.println(volume.fatType(), DEC);
+  Serial.println();
+
+  volumesize = volume.blocksPerCluster();    // clusters = collections de  blocks
+  volumesize *= volume.clusterCount();       // On a un lot de clusters
+  volumesize *= 512;                         // SD card blocks de toujours 512 octets
+  Serial.print("Taille de volume (octets): ");
+  Serial.println(volumesize);
+  Serial.print("Taille de volume (Koctets): ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+  Serial.print("Taille de volumee (Moctets): ");
+  volumesize /= 1024;
+  Serial.println(volumesize);
+
+
+  Serial.println("\nFichiers trouves sur la carte (nom, date et taille en octets): ");
+  root.openRoot(volume);
+
+  // liste de tous les fichiers sur la carte avec leur date et taile
+  root.ls(LS_R | LS_DATE | LS_SIZE);
+}  //Fin du setup
+
+void loop(void) {
+  //============= Essai de lecture / ecriture
+  //Test de création de fichier  (pin 4 pour le shield Ethernet)
+  if (!SD.begin(4)) {
+    Serial.println("Echec de l initialisation !");
+    delay(1500);
+    return;
+  }
+  Serial.println("Initialisation OK");
+
+  if (SD.exists("example.txt")) {
+    Serial.println("Le fichier example.txt existe deja");
+  }
+  else {
+    Serial.println("Le fichier example.txt n existe pas encore");
+  }
+
+  // Ouvrir un nouveau fichier et le refermer aussitôt
+  Serial.println("Creation de example.txt...");
+  myFile = SD.open("example.txt", FILE_WRITE);
+  myFile.close();
+
+  // Vérifier si ce fichier existe
+  if (SD.exists("example.txt")) {
+    Serial.println("Maintenant example.txt existe");
+  }
+  else {
+    Serial.println("Erreur de creation example.txt n existe pas");
+  }
+
+  // Effacer ce fichier
+  Serial.println("Effacer example.txt...");
+  SD.remove("example.txt");
+
+  if (SD.exists("example.txt")){
+    Serial.println("example.txt existe encore");
+  }
+  else {
+    Serial.println("example.txt n existe plus");
+  }
+  delay(5000); //5 sec
+
+} //Fin de programme
